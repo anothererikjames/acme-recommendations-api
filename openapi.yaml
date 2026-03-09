@@ -1,100 +1,133 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
-  title: Notifications API
-  description: Multi-channel notification delivery service
-  version: "1.0.0"
-  contact:
-    name: Notifications Team
-    email: notifications@example.com
-
+  title: Recommendations API
+  description: Personalized product and content recommendations powered by ML models for the ACME platform.
+  version: 1.2.0
 servers:
-  - url: https://notifications.api.example.com/v1
+  - url: https://recommendations.acme-platform.internal/v1
     description: Production
-
+  - url: https://recommendations-dev.acme-platform.internal/v1
+    description: Development
+security:
+  - bearerAuth: []
+tags:
+  - name: recommendations
+  - name: feedback
+  - name: models
 paths:
-  /messages/email:
-    post:
-      operationId: sendEmail
-      summary: Send an email notification
-      tags: [Messages]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmailMessage"
-      responses:
-        "202":
-          description: Email queued for delivery
-
-  /messages/sms:
-    post:
-      operationId: sendSms
-      summary: Send an SMS notification
-      tags: [Messages]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SmsMessage"
-      responses:
-        "202":
-          description: SMS queued
-
-  /templates:
+  /health:
     get:
-      operationId: listTemplates
-      summary: List notification templates
-      tags: [Templates]
+      summary: Health check
       responses:
-        "200":
-          description: Templates list
-
-  /preferences/{userId}:
+        '200':
+          description: Service healthy
+  /recommendations/{userId}:
     get:
-      operationId: getPreferences
-      summary: Get notification preferences for a user
-      tags: [Preferences]
+      tags: [recommendations]
+      summary: Get personalized recommendations for a user
       parameters:
         - name: userId
           in: path
           required: true
+          schema: {type: string}
+        - name: context
+          in: query
           schema:
             type: string
+            enum: [homepage, cart, checkout, email]
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
       responses:
-        "200":
-          description: User preferences
-        "404":
+        '200':
+          description: Recommended items
+        '404':
           description: User not found
-
+  /recommendations/trending:
+    get:
+      tags: [recommendations]
+      summary: Get trending items
+      parameters:
+        - name: category
+          in: query
+          schema: {type: string}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 20}
+      responses:
+        '200':
+          description: Trending items list
+  /recommendations/similar/{itemId}:
+    get:
+      tags: [recommendations]
+      summary: Get items similar to a given item
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
+      responses:
+        '200':
+          description: Similar items
+  /feedback:
+    post:
+      tags: [feedback]
+      summary: Submit recommendation feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FeedbackInput'}
+      responses:
+        '202':
+          description: Feedback recorded
+  /feedback/{userId}:
+    get:
+      tags: [feedback]
+      summary: Get feedback history for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Feedback history
+  /models:
+    get:
+      tags: [models]
+      summary: List active recommendation models
+      responses:
+        '200':
+          description: Model list
+  /models/{modelId}/metrics:
+    get:
+      tags: [models]
+      summary: Get model performance metrics
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Model metrics
 components:
   securitySchemes:
-    BearerAuth:
+    bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
-
   schemas:
-    EmailMessage:
+    FeedbackInput:
       type: object
-      required: [to, subject, templateId]
+      required: [userId, itemId, signal]
       properties:
-        to:
+        userId: {type: string}
+        itemId: {type: string}
+        signal:
           type: string
-          format: email
-        subject:
-          type: string
-        templateId:
-          type: string
-        variables:
-          type: object
-
-    SmsMessage:
-      type: object
-      required: [to, body]
-      properties:
-        to:
-          type: string
-        body:
-          type: string
+          enum: [click, purchase, dismiss, save]
+        context: {type: string}
